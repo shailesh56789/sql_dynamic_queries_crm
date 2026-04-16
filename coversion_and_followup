@@ -1,0 +1,185 @@
+SELECT * FROM spalabsdomain_Kairali_CRM_Db.conversion_updates_employeewise;
+
+
+
+SELECT 
+    c.lead_id,
+    c.Timestamp,
+    c.verified_source,
+    d.Full_Disposition
+
+FROM spalabsdomain_Kairali_CRM_Db.master_buffer c
+
+INNER JOIN spalabsdomain_Kairali_CRM_Db.followup_activity d 
+    ON c.lead_id = d.lead_id
+    AND LOWER(d.Full_Disposition) = 'cold'
+
+INNER JOIN spalabsdomain_Kairali_CRM_Db.staging_buffer_new a
+    ON c.lead_id = a.Lead_id
+where verified_source='Website' and Timestamp='2026-04-07 15:01:33'
+
+ORDER BY c.Timestamp ASC ;
+-- ********************************
+  SELECT 
+        c.lead_id,
+        c.Timestamp,
+        c.verified_source,
+     
+        d.Full_Disposition
+
+      FROM spalabsdomain_Kairali_CRM_Db.master_buffer c
+
+      LEFT JOIN spalabsdomain_Kairali_CRM_Db.followup_activity d 
+        ON c.lead_id = d.lead_id
+        AND LOWER(d.Full_Disposition) IN ('cold')
+
+      INNER JOIN spalabsdomain_Kairali_CRM_Db.staging_buffer_new a
+        ON c.lead_id = a.Lead_id
+  
+ 
+   
+      ORDER BY c.Timestamp ASC
+      where d.Full_Disposition='cold';
+      
+--       ***************************************
+-- ***************************************************************
+
+SET @search_text = '';
+SET @date_filter   = 'all';   -- empty means ignore
+SET @date_from   = '';
+SET @date_to     = '';
+SET @company     = 'VILLARAAG';
+SET @lead_source = '';
+SET @assigned_to = '';
+SET @priority    = '';
+SET @urgency     = '';
+select 
+    c.sl_no,
+    c.Email_id,
+    c.Subjects,
+    c.Notes,
+    c.IVR_URL,
+    c.Data_Source,
+    a.Assign_To_MR_Main,
+    a.NBD_CRR,
+    a.Transcription,
+    a.Lead_Relates_to_which_company,
+    a.Priority,
+    a.Urgency_YES_NO,
+    a.Summary_of_Conversation,
+    a.Lead_Outcome,
+    a.Lead_Category,
+    a.Preferred_Way_to_Contact,
+    c.Data_Source,
+    d.Full_Disposition,
+    d.Remarks_History,
+    d.doer
+   from  spalabsdomain_Kairali_CRM_Db.master_buffer c
+   Left JOIN spalabsdomain_Kairali_CRM_Db.followup_activity d 
+     ON c.lead_id = d.lead_id
+	left JOIN spalabsdomain_Kairali_CRM_Db.staging_buffer_new a
+	ON c.lead_id = a.Lead_id 
+    WHERE 1=1
+    
+   ORDER BY c.Timestamp ASC
+-- ****************************************************************************************
+SELECT distinct verified_source FROM spalabsdomain_Kairali_CRM_Db.conversion_updates_employeewise;
+
+SELECT 
+    company,
+    LOWER(COALESCE(verified_source, 'facebook')) as source,
+    DATE(date_and_time) as date,
+
+    -- ✅ VERIFIED (CONFIRMED)
+    COUNT(CASE 
+        WHEN is_verified = 1 AND LOWER(booking_status) = 'confirmed' 
+        THEN 1 END) as verified_count,
+
+    SUM(CASE 
+        WHEN is_verified = 1 AND LOWER(booking_status) = 'confirmed' 
+        THEN COALESCE(conversion_amount, 0)
+        ELSE 0 END) as verified_amount,
+
+    -- ✅ UNVERIFIED (REST)
+    COUNT(CASE 
+        WHEN is_verified = 0 AND LOWER(booking_status) != 'confirmed' 
+        THEN 1 END) as unverified_count,
+
+    SUM(CASE 
+        WHEN is_verified = 0 AND LOWER(booking_status) != 'confirmed' 
+        THEN COALESCE(conversion_amount, 0)
+        ELSE 0 END) as unverified_amount,
+
+    -- ✅ CANCELLED
+    COUNT(CASE 
+        WHEN LOWER(booking_status) = 'cancelled' 
+        THEN 1 END) as cancelled_count,
+
+    SUM(CASE 
+        WHEN LOWER(booking_status) = 'cancelled' 
+        THEN COALESCE(conversion_amount, 0)
+        ELSE 0 END) as cancelled_amount
+
+FROM spalabsdomain_Kairali_CRM_Db.conversion_updates_employeewise
+
+GROUP BY company, source, DATE(date_and_time)
+ORDER BY company, date ASC;
+
+-- ********************************************************
+
+
+
+SELECT 
+  company,
+  source,
+  DATE_FORMAT(date, '%d-%m-%Y') as date,
+
+  COUNT(*) as total_leads,
+
+  SUM(CASE 
+      WHEN reason IN ('cold','not interested') THEN 1 
+      ELSE 0 
+  END) as wasted_leads,
+
+  ROUND(
+    SUM(CASE 
+        WHEN reason IN ('cold','not interested') THEN 1 
+        ELSE 0 
+    END) / COUNT(*) * 100, 2
+  ) as wasted_percentage
+
+FROM (
+  
+  SELECT 
+    c.lead_id,
+    c.Timestamp as date,
+    COALESCE(c.verified_source, 'Others') as source,
+
+    -- ✅ Company mapping (same as API)
+    CASE 
+      WHEN LOWER(a.Lead_Relates_to_which_company) IN ('villaraag') THEN 'VILLARAAG'
+      
+      WHEN LOWER(a.Lead_Relates_to_which_company) IN (
+        'kairali the ayurvedic healing village',
+        'kairali ayurvedic centers',
+        'kairali ayurvedic center',
+        'kairali ayurvedic healing village'
+      ) THEN 'KTAHV'
+      
+      ELSE 'KAPPL'
+    END as company,
+
+    LOWER(d.Full_Disposition) as reason
+
+  FROM spalabsdomain_Kairali_CRM_Db.master_buffer c
+
+  LEFT JOIN spalabsdomain_Kairali_CRM_Db.followup_activity d 
+    ON c.lead_id = d.lead_id
+
+  INNER JOIN spalabsdomain_Kairali_CRM_Db.staging_buffer_new a
+    ON c.lead_id = a.Lead_id
+
+) as base
+
+GROUP BY company, source, DATE(date)
+ORDER BY company, date;
