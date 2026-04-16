@@ -1,0 +1,171 @@
+SELECT sum(total_users_count) FROM spalabsdomain_Kairali_CRM_Db.total_traffic_table  where date ='2026-04-13' and  lower(medium)='others' and comapany_name='KTAHV';
+SELECT * FROM spalabsdomain_Kairali_CRM_Db.total_traffic_table  where date ='2026-04-13'
+
+show create table  spalabsdomain_Kairali_CRM_Db.total_traffic_table;
+
+
+
+
+SET @filters = '{
+  "company": ["equal", "KTAHV"],
+  "date": ["All", ""],
+  "range": ["2026-04-01", "2026-04-30"],
+  "source": ["like", "facebook"],
+  "priority": ["all", "High"],
+  "intent": ["equal", "High"]
+}';
+
+-- 🔥 JSON INPUT
+SET @filters = '{
+  "company": ["equal", "KTAHV"],
+  "date": ["this_month", ""],
+  "source": ["all", ""],
+  "priority": ["all", ""],
+  "intent": ["equal", "High"]
+}';
+
+
+-- 🔥 JSON INPUT
+SET @filters = '{
+  "company": ["equal", "KTAHV"],
+  "date": ["all", ""],
+  "range": ["2026-04-01", "2026-06-30"],
+  "source": ["all", ""],
+  "priority": ["all", ""],
+  "intent": ["equal", "High"]
+}';
+
+
+SET @filters = '{
+  "company": ["equal", "KTAHV"],
+  "date": ["yesterday", ""],  
+  "range": ["", ""],
+   "source": ["all", ""],
+  "priority": ["all", ""],
+  "intent": ["all", ""]
+}';
+-- 🎯 EXTRACT VALUES
+SET @company_type = JSON_UNQUOTE(JSON_EXTRACT(@filters, '$.company[0]'));
+SET @company_val  = JSON_UNQUOTE(JSON_EXTRACT(@filters, '$.company[1]'));
+
+SET @date_type = JSON_UNQUOTE(JSON_EXTRACT(@filters, '$.date[0]'));
+SET @date_val  = JSON_UNQUOTE(JSON_EXTRACT(@filters, '$.date[1]'));
+
+-- RANGE
+SET @date_from = JSON_UNQUOTE(JSON_EXTRACT(@filters, '$.range[0]'));
+SET @date_to   = JSON_UNQUOTE(JSON_EXTRACT(@filters, '$.range[1]'));
+-- RANGE
+
+SET @source_type = JSON_UNQUOTE(JSON_EXTRACT(@filters, '$.source[0]'));
+SET @source_val  = JSON_UNQUOTE(JSON_EXTRACT(@filters, '$.source[1]'));
+
+
+
+-- --- 🚀 MAIN QUERY
+SELECT 
+   date,
+   source,
+   medium,
+   comapany_name
+FROM spalabsdomain_Kairali_CRM_Db.total_traffic_table 
+WHERE 1=1
+
+-- 📅 DATE FILTER
+AND (
+    @date_type = 'all'
+
+    OR (@date_type = 'today' 
+        AND DATE(date) = CURDATE())
+
+    OR (@date_type = 'yesterday' 
+        AND DATE(date) = CURDATE() - INTERVAL 1 DAY)
+
+    OR (@date_type = 'this_week' 
+        AND YEARWEEK(date, 1) = YEARWEEK(CURDATE(), 1))
+
+    OR (@date_type = 'last_week' 
+        AND YEARWEEK(date, 1) = YEARWEEK(CURDATE(), 1) - 1)
+
+    OR (@date_type = 'this_month' 
+        AND MONTH(date) = MONTH(CURDATE()) 
+        AND YEAR(date) = YEAR(CURDATE()))
+
+    OR (@date_type = 'last_month' 
+        AND MONTH(date) = MONTH(CURDATE() - INTERVAL 1 MONTH)
+        AND YEAR(date) = YEAR(CURDATE() - INTERVAL 1 MONTH))
+
+    OR (@date_type = 'this_year' 
+        AND YEAR(date) = YEAR(CURDATE()))
+
+    OR (@date_type = 'last_year' 
+        AND YEAR(date) = YEAR(CURDATE()) - 1)
+
+
+   -- 🔥 custom (fix)
+OR (
+    @date_type = 'custom'        -- ✅ Yeh add karo
+    AND @date_from IS NOT NULL 
+    AND @date_to IS NOT NULL
+    AND date BETWEEN 
+        CONCAT(@date_from, ' 00:00:00')
+        AND CONCAT(@date_to, ' 23:59:59')
+  )
+)
+
+-- 🏢 COMPANY FILTER
+AND (
+    @company_type = 'all'
+    OR (
+        CASE 
+            WHEN LOWER(comapany_name) = 'villaraag' THEN 'VILLARAAG'
+            WHEN LOWER(comapany_name) IN (
+               'KTAHV','ktahv'
+            ) THEN 'KTAHV'
+            ELSE 'KAPPL'
+            
+        END = @company_val
+    )
+)
+
+-- 📊 SOURCE FILTER
+AND (
+    @source_type = 'all'
+    OR (@source_type = 'equal' 
+        AND source = @source_val)
+    OR (@source_type = 'like' 
+        AND source LIKE CONCAT('%', @source_val, '%'))
+)
+
+
+ORDER BY date ASC;
+
+SET @priority_type = JSON_UNQUOTE(JSON_EXTRACT(@filters, '$.priority[0]'));
+SET @priority_val  = JSON_UNQUOTE(JSON_EXTRACT(@filters, '$.priority[1]'));
+
+SET @intent_type = JSON_UNQUOTE(JSON_EXTRACT(@filters, '$.intent[0]'));
+SET @intent_val  = JSON_UNQUOTE(JSON_EXTRACT(@filters, '$.intent[1]'));
+-- 🎯 PRIORITY FILTER
+AND (
+    @priority_type = 'all'
+    OR (@priority_type = 'equal' 
+        AND a.Priority = @priority_val)
+    OR (@priority_type = 'like' 
+        AND a.Priority LIKE CONCAT('%', @priority_val, '%'))
+)
+
+-- ⚡ INTENT FILTER
+AND (
+    @intent_type = 'all'
+    OR (@intent_type = 'equal' 
+        AND a.Intent = @intent_val)
+    OR (@intent_type = 'like' 
+        AND a.Intent LIKE CONCAT('%', @intent_val, '%'))
+        
+        
+        
+show create table spalabsdomain_Kairali_CRM_Db.payment_collection;
+
+SHOW VARIABLES LIKE 'log_error';
+SHOW VARIABLES LIKE 'general_log';
+SET GLOBAL general_log = 'ON';
+SHOW VARIABLES LIKE 'slow_query_log';
